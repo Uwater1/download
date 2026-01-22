@@ -8,13 +8,22 @@ TICKERS = {
     "gold": "GC=F",
     "silver": "SI=F",
     "oil": "CL=F",
-    "bitcoin": "BTC-USD",
-    "ethereum": "ETH-USD",
-    "nasdaq100": "QQQ",
+    "BTC": "BTC-USD",
+    "ETH": "ETH-USD",
+    "nq100": "QQQ",
     "sp500": "IVV",
+    "aapl": "AAPL",
+    "msft": "MSFT",
+    "nvda": "NVDA",
+    "tsla": "TSLA",
+    "amzn": "AMZN",
+    "goog": "GOOG"
     "usdjpy": "JPY=X",
     "usdcad": "CAD=X",
-    "eurusd": "EURUSD=X"
+    "eurusd": "EURUSD=X",
+    "gbpusd": "GBPUSD=X",
+    "audusd": "AUDUSD=X",
+    "usdchf": "CHF=X"
 }
 
 current_date = datetime.now().strftime("%Y-%m-%d")

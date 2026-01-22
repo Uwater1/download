@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -47,4 +49,4 @@ jobs:
           git config --local user.name "GitHub Action"
           git add .
           git diff --staged --quiet || git commit -m "Add downloaded data for $(date +'%Y-%m-%d')"
-          git push
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/Uwater1/download.git

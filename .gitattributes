@@ -1,0 +1,2 @@
+# Exclude yyyy-mm-dd directories from generated archive downloads (Download ZIP / git archive)
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ export-ignore

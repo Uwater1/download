@@ -5,6 +5,9 @@ on:
     - cron: '0 0 * * 6'  # Runs at midnight every Saturday (UTC)
   workflow_dispatch:  # Allows manual triggering
 
+permissions:
+  contents: write
+
 jobs:
   download:
     runs-on: ubuntu-latest
@@ -23,6 +26,13 @@ jobs:
 
       - name: Run download script
         run: python download_data.py > work_log_$(date +'%Y-%m-%d').txt 2>&1
+
+      - name: Write work summary
+        run: |
+          echo "## Work Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Downloaded financial data for $(date +'%Y-%m-%d')" >> $GITHUB_STEP_SUMMARY
+          echo "CSV files saved in $(date +'%Y-%m-%d')/ folder" >> $GITHUB_STEP_SUMMARY
+          echo "Work log available in work_log_$(date +'%Y-%m-%d').txt" >> $GITHUB_STEP_SUMMARY
 
       - name: Commit and push downloaded data
         run: |

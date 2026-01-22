@@ -17,7 +17,7 @@ TICKERS = {
     "nvda": "NVDA",
     "tsla": "TSLA",
     "amzn": "AMZN",
-    "goog": "GOOG"
+    "goog": "GOOG",
     "usdjpy": "JPY=X",
     "usdcad": "CAD=X",
     "eurusd": "EURUSD=X",

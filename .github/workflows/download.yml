@@ -25,14 +25,21 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run download script
-        run: python download_data.py > work_log_$(date +'%Y-%m-%d').txt 2>&1
+        id: download
+        run: |
+          python download_data.py > /tmp/work_log.txt 2>&1
+          cat /tmp/work_log.txt
+          echo "log<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/work_log.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Write work summary
         run: |
           echo "## Work Summary" >> $GITHUB_STEP_SUMMARY
           echo "Downloaded financial data for $(date +'%Y-%m-%d')" >> $GITHUB_STEP_SUMMARY
           echo "CSV files saved in $(date +'%Y-%m-%d')/ folder" >> $GITHUB_STEP_SUMMARY
-          echo "Work log available in work_log_$(date +'%Y-%m-%d').txt" >> $GITHUB_STEP_SUMMARY
+          echo "### Work Log" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.download.outputs.log }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Commit and push downloaded data
         run: |

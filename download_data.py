@@ -38,7 +38,7 @@ downloaded = []
 for name, ticker in TICKERS.items():
     try:
         print(f"Downloading data for {name} ({ticker})...")
-        data = yf.download(ticker, period="7d", interval="1m")
+        data = yf.download(ticker, period="8d", interval="1m")
 
         # Skip writing if no data returned
         if data is None or (hasattr(data, "empty") and data.empty) or (isinstance(data, pd.DataFrame) and data.shape[0] == 0):

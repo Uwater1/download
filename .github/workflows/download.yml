@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   download:
@@ -49,4 +50,4 @@ jobs:
           git config --local user.name "GitHub Action"
           git add .
           git diff --staged --quiet || git commit -m "Add downloaded data for $(date +'%Y-%m-%d')"
-          git push
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/Uwater1/download.git

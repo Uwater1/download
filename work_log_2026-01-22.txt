@@ -1,31 +1,0 @@
-[*********************100%***********************]  1 of 1 completed
-[*********************100%***********************]  1 of 1 completed
-[*********************100%***********************]  1 of 1 completed
-[*********************100%***********************]  1 of 1 completed
-[*********************100%***********************]  1 of 1 completed
-[*********************100%***********************]  1 of 1 completed
-[*********************100%***********************]  1 of 1 completed
-[*********************100%***********************]  1 of 1 completed
-[*********************100%***********************]  1 of 1 completed
-[*********************100%***********************]  1 of 1 completed
-Downloading data for gold (GC=F)...
-Saved gold.csv to 2026-01-22
-Downloading data for silver (SI=F)...
-Saved silver.csv to 2026-01-22
-Downloading data for oil (CL=F)...
-Saved oil.csv to 2026-01-22
-Downloading data for bitcoin (BTC-USD)...
-Saved bitcoin.csv to 2026-01-22
-Downloading data for ethereum (ETH-USD)...
-Saved ethereum.csv to 2026-01-22
-Downloading data for nasdaq100 (QQQ)...
-Saved nasdaq100.csv to 2026-01-22
-Downloading data for sp500 (IVV)...
-Saved sp500.csv to 2026-01-22
-Downloading data for usdjpy (JPY=X)...
-Saved usdjpy.csv to 2026-01-22
-Downloading data for usdcad (CAD=X)...
-Saved usdcad.csv to 2026-01-22
-Downloading data for eurusd (EURUSD=X)...
-Saved eurusd.csv to 2026-01-22
-All data downloaded and saved.

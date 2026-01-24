@@ -1,2 +1,2 @@
-# Ignore directories named like 2024-01-22 (four digits - two digits - two digits)
-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
+# Note: Date folders (YYYY-MM-DD) are intentionally NOT ignored
+# to allow the workflow to commit downloaded data

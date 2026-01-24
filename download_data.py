@@ -52,7 +52,6 @@ for name, ticker in TICKERS.items():
         downloaded.append(name)
     except Exception as e:
         print(f"Error downloading data for {name} ({ticker}): {e}")
-    # Rate limiting to avoid API issues (increased from 1s to 2s)
     time.sleep(1)
 
 print("All data download attempts complete.")

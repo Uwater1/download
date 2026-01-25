@@ -1,0 +1,53 @@
+name: Weekly Data Download
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes (for testing)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run download script
+        id: download
+        run: |
+          python download_data.py > /tmp/work_log.txt 2>&1
+          cat /tmp/work_log.txt
+          echo "log<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/work_log.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Write work summary
+        run: |
+          echo "## Work Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Downloaded financial data for $(date +'%Y-%m-%d')" >> $GITHUB_STEP_SUMMARY
+          echo "CSV files saved in $(date +'%Y-%m-%d')/ folder" >> $GITHUB_STEP_SUMMARY
+          echo "### Work Log" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.download.outputs.log }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Commit and push downloaded data
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git diff --staged --quiet || git commit -m "Add downloaded data for $(date +'%Y-%m-%d')"
+          git push

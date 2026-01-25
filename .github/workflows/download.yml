@@ -2,7 +2,7 @@ name: Weekly Data Download
 
 on:
   schedule:
-    - cron: '0 0 * * 0'  # Runs at midnight every Sunday (UTC)
+    - cron: '0 0 * * 6'  # Runs at midnight every Saturday (UTC)
   workflow_dispatch:  # Allows manual triggering
 
 permissions:

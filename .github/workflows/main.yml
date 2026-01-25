@@ -1,4 +1,4 @@
-name: Weekly Data Download
+name: New Data Downloader
 
 on:
   schedule:

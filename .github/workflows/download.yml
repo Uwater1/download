@@ -2,7 +2,7 @@ name: Weekly Data Download
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Every 15 minutes (for testing only!)  # Sunday at 0:00 UTC
+    - cron: '0 0 * * 0'  # Sunday at 0:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   download:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     steps:
       - name: Checkout repository

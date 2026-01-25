@@ -2,7 +2,7 @@ name: Weekly Data Download
 
 on:
   schedule:
-    - cron: '0 5 * * 0'  # Sunday at 05:00 UTC
+    - cron: '44 5 * * 0'  # Sunday at 05:44 UTC
 
   workflow_dispatch:
   fork: 

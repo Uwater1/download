@@ -2,7 +2,7 @@ name: New Data Downloader
 
 on:
   schedule:
-    - cron: '0 5 * * 6'  # Run at 5:00 UTC Every SAT
+    - cron: '44 5 * * 6'  # Run at 5:44 UTC Every SAT
   workflow_dispatch:
 
 permissions:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   download:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     steps:
       - name: Checkout repository

@@ -1,8 +1,9 @@
 name: New Data Downloader
 
 on:
-  schedule:
-    - cron: '*/15 * * * *'  # Every 15 minutes (for testing)
+#  schedule:
+#    - cron: '0 0 * * 0'  # Every 15 minutes (for testing)
+  workflow_dispatch:
 
 permissions:
   contents: write

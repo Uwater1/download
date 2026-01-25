@@ -4,7 +4,7 @@ This project automatically downloads weekly financial data for various assets us
 
 ## Features
 
-- Downloads 7 days of 1-minute interval data for:
+- Downloads 8 days of 1-minute interval data for:
   - Gold (GC=F)
   - Silver (SI=F)
   - Oil (CL=F)
@@ -16,7 +16,7 @@ This project automatically downloads weekly financial data for various assets us
   - USD/CAD (CAD=X)
   - EUR/USD (EURUSD=X)
 
-- Runs automatically every Saturday at midnight UTC via GitHub Actions
+- Runs automatically every Sunday at midnight UTC via GitHub Actions
 - Can be triggered manually
 - Includes rate limiting and error handling
 - Commits downloaded data to the repository

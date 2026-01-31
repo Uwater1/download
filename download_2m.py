@@ -2,6 +2,7 @@ import yfinance as yf
 import os
 from datetime import datetime
 import pandas as pd
+import pandas-ta as ta
 import time
 
 TICKERS = {
@@ -62,3 +63,11 @@ if downloaded:
 print(f"Skipped tickers with no data: {len(skipped)}")
 if skipped:
     print("Skipped tickers:", ", ".join(skipped))
+
+
+# Create a DataFrame so 'ta' can be used.
+df = pd.DataFrame()
+# Help about this, 'ta', extension
+help(df.ta)
+# List of all indicators
+df.ta.indicators()

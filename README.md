@@ -38,6 +38,10 @@ The workflow runs automatically. To trigger manually:
 - Python 3.x
 - Dependencies: yfinance, pandas
 
+## Github Action
+each Github action might has a delay **UP TO 48 HOURS** so I got 2 github action running
+**THERE'S NO GUANTEE IT WILL WORK**
+
 ## License
 
 See LICENSE file.

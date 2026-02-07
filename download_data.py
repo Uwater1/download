@@ -2,7 +2,6 @@ import yfinance as yf
 import os
 from datetime import datetime
 import pandas as pd
-import pandas_ta as ta
 import time
 
 TICKERS = {

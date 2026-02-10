@@ -26,7 +26,7 @@ TICKERS = {
     "eurusd": "EURUSD=X",
     "gbpusd": "GBPUSD=X",
     "audusd": "AUDUSD=X",
-    "usdchf": "CHF=X"
+    "usdchf": "CHF=X",
 }
 
 current_date = datetime.now().strftime("%Y-%m-%d")

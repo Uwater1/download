@@ -1,2 +1,2 @@
-contractSymbol,lastTradeDate,strike,lastPrice,volume,impliedVolatility,inTheMoney,underlyingPriceAtTrade,riskFreeRate
-IVV260327P00680000,2026-02-05 15:17:19+00:00,680.0,17.0,,1.5635,0,681.02,0.03593
+contractSymbol,lastTradeDate,strike,lastPrice,volume,inTheMoney,IV_yf,underlyingPriceAtTrade,impliedVolatility,riskFreeRate
+IVV260327P00680000,2026-02-05 15:17:19+00:00,680.0,17.0,,0,1.5635,681.02,20.1339,0.036429998

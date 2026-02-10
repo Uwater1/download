@@ -23,7 +23,7 @@ jobs:
           python-version: '3.x'
 
       - name: Install dependencies
-        run: pip install pandas yfinance
+        run: pip install pandas yahooquery
 
       - name: Run options download script
         id: download

@@ -22,7 +22,7 @@ TICKERS = {
 }
 
 current_date = datetime.now().strftime("%Y-%m-%d")
-base_folder = "options_data_yq"
+base_folder = "options_data_yq" 
 date_folder = os.path.join(base_folder, current_date)
 
 if not os.path.exists(date_folder):
@@ -35,53 +35,71 @@ def process_and_save(df, ticker_name):
     Splits the yahooquery bulk DataFrame into individual CSVs per expiration
     and applies formatting rules.
     """
-    # yahooquery returns a MultiIndex: (symbol, expiration, option_type)
-    # We reset index to make them columns we can filter by
+    # 1. Handle Index: yahooquery usually returns MultiIndex (symbol, expiration, option_type, ...)
     df = df.reset_index()
 
-    # Map yahooquery snake_case columns to the camelCase format you might expect/want
-    # or just keep them clean. Here we standardise to match your previous requirements.
-    # Note: yahooquery usually returns: contract_symbol, strike, last_price, open_interest, etc.
+    # 2. Normalize Columns (Fix for your error)
+    # Sometimes it returns 'optionType', sometimes 'option_type'
+    if 'optionType' in df.columns and 'option_type' not in df.columns:
+        df = df.rename(columns={'optionType': 'option_type'})
     
-    # 1. Format Implied Volatility (0.25 -> 25.0000)
-    if 'implied_volatility' in df.columns:
-        df['impliedVolatility'] = (df['implied_volatility'] * 100).round(4)
-    
-    # 2. Format In The Money (True/False -> 1/0)
-    if 'in_the_money' in df.columns:
-        df['inTheMoney'] = df['in_the_money'].astype(int)
+    # Check if critical columns exist
+    if 'option_type' not in df.columns:
+        print(f"  [WARNING] 'option_type' column missing for {ticker_name}. Available columns: {list(df.columns)}")
+        # Try to guess based on values? No, safer to skip to avoid bad data.
+        return
 
-    # 3. Rename columns to match typical conventions (optional, but good for consistency)
+    # 3. Format Implied Volatility (0.25 -> 25.0000)
+    # Check for both snake_case and camelCase variations just in case
+    iv_col = 'implied_volatility' if 'implied_volatility' in df.columns else 'impliedVolatility'
+    if iv_col in df.columns:
+        df['impliedVolatility'] = (df[iv_col] * 100).round(4)
+    
+    # 4. Format In The Money (True/False -> 1/0)
+    itm_col = 'in_the_money' if 'in_the_money' in df.columns else 'inTheMoney'
+    if itm_col in df.columns:
+        df['inTheMoney'] = df[itm_col].astype(int)
+
+    # 5. Rename columns to match typical conventions
+    # We map from whatever yahooquery gave us to your desired camelCase
     rename_map = {
-        'contract_symbol': 'contractSymbol',
-        'last_price': 'lastPrice',
-        'last_trade_date': 'lastTradeDate',
-        'open_interest': 'openInterest'
+        'contract_symbol': 'contractSymbol', 'contractSymbol': 'contractSymbol',
+        'last_price': 'lastPrice',           'lastPrice': 'lastPrice',
+        'last_trade_date': 'lastTradeDate',  'lastTradeDate': 'lastTradeDate',
+        'open_interest': 'openInterest',     'openInterest': 'openInterest',
+        'expiration': 'expiration'
     }
     df = df.rename(columns=rename_map)
 
-    # 4. Drop unwanted columns
-    # We remove the ones you requested to delete or that are often empty
+    # 6. Drop unwanted columns
+    # We remove openInterest as requested (often 0)
     cols_to_drop = [
         'contract_size', 'currency', 'change', 'percent_change', 
-        'bid', 'ask', 'openInterest', # User asked to remove openInterest if 0
-        'implied_volatility', 'in_the_money' # Dropping original columns since we made new formatted ones
+        'bid', 'ask', 'openInterest', 
+        'implied_volatility', 'in_the_money', 'optionType', # drop originals
+        'impliedVolatility', 'inTheMoney' # Keep the ones we formatted? No, we need to KEEP the formatted ones.
     ]
-    df = df.drop(columns=cols_to_drop, errors='ignore')
+    
+    # Careful not to drop the formatted columns we just created ('impliedVolatility', 'inTheMoney')
+    # So we only drop the raw source columns
+    source_cols_to_drop = [
+        'contract_size', 'currency', 'change', 'percent_change', 
+        'bid', 'ask', 'openInterest', 
+        'implied_volatility', 'in_the_money', 'optionType', 'change_percent'
+    ]
+    df = df.drop(columns=source_cols_to_drop, errors='ignore')
 
     # Group by Expiration and Option Type to save files
-    # Structure: df contains ALL data for this ticker. We need to split it up.
-    
-    # Get unique expirations
+    if 'expiration' not in df.columns:
+         print(f"  [ERROR] 'expiration' column missing for {ticker_name}. Skipping.")
+         return
+
     expirations = df['expiration'].unique()
-    
     saved_count = 0
     
     for date in expirations:
         try:
             # Format filename date part (YYYY-MM-DD -> YYYYMMDD)
-            # yahooquery dates are usually datetime objects or strings.
-            # Convert to string just in case
             date_str = str(date)
             safe_date = date_str.replace("-", "")
             
@@ -121,14 +139,12 @@ for name, ticker_symbol in TICKERS.items():
         t = Ticker(ticker_symbol)
         
         # This single line fetches ALL expirations at once!
-        # It's much faster than yfinance looping.
         df = t.option_chain
         
         if df is None or df.empty:
             print(f"  No options data found for {name}.")
             continue
             
-        # Check if the output is valid (sometimes returns weird dicts if failed)
         if isinstance(df, pd.DataFrame):
             process_and_save(df, name)
         else:
@@ -136,6 +152,5 @@ for name, ticker_symbol in TICKERS.items():
 
     except Exception as e:
         print(f"Failed to retrieve data for {name}: {e}")
-        # yahooquery sometimes throws specific errors for no data, catch them here
 
 print("Options download complete.")

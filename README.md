@@ -1,6 +1,7 @@
 # Financial Data Downloader
 
 This project automatically downloads weekly financial data for various assets using Yahoo Finance and saves them as CSV files in a date-stamped folder.
+It also automatically downloads daily option data on 23:00 UTC Monday to Friday.
 
 ## Features
 
@@ -30,8 +31,9 @@ The workflow runs automatically. To trigger manually:
 
 ## Output
 
-- CSV files are saved in folders named `YYYY-MM-DD/`
+- Price CSV files are saved in folders named `YYYY-MM-DD/`
 - Work log is available in the GitHub Actions job summary
+- Option CSV file: 1 represent In the Money, 0 represent Out of the Money
 
 ## Requirements
 

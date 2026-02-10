@@ -48,6 +48,7 @@ for name, ticker in TICKERS.items():
 
         file_path = os.path.join(folder_path, f"{name}.csv")
         data = data.round(3) 
+        data.index = data.index.strftime("%Y-%m-%d %H:%M") 
         data.to_csv(file_path)
         print(f"Saved {name}.csv to {folder_path}")
         downloaded.append(name)

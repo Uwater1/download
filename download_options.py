@@ -52,56 +52,99 @@ def get_risk_free_rate():
         print(f"Error fetching risk-free rate: {e}, using default 0.04")
         return 0.04
 
-def _bs_price(S, K, T, r, sigma, option_type='call'):
+def _bs_price_vec(S, K, T, r, sigma, is_call):
     """
-    Black-Scholes option price.
-    S: underlying price, K: strike, T: time to expiry (years),
-    r: risk-free rate, sigma: volatility (decimal), option_type: 'call' or 'put'
+    Vectorized Black-Scholes option price.
+    All inputs are numpy arrays of the same length. is_call is a boolean array.
     """
-    if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
-        return 0.0
-    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-    d2 = d1 - sigma * np.sqrt(T)
-    if option_type == 'call':
-        return S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
-    else:
-        return K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+    sqrt_T = np.sqrt(T)
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * sqrt_T)
+    d2 = d1 - sigma * sqrt_T
+    discount = K * np.exp(-r * T)
+    call_price = S * norm.cdf(d1) - discount * norm.cdf(d2)
+    put_price = discount * norm.cdf(-d2) - S * norm.cdf(-d1)
+    return np.where(is_call, call_price, put_price)
 
-def _bs_vega(S, K, T, r, sigma):
-    """Black-Scholes vega (dPrice/dSigma)."""
-    if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
-        return 0.0
-    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-    return S * np.sqrt(T) * norm.pdf(d1)
+def _bs_vega_vec(S, K, T, r, sigma):
+    """Vectorized Black-Scholes vega."""
+    sqrt_T = np.sqrt(T)
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * sqrt_T)
+    return S * sqrt_T * norm.pdf(d1)
 
-def calculate_iv(market_price, S, K, T, r, option_type='call', tol=1e-6, max_iter=50):
+def calculate_iv_vectorized(market_prices, S_arr, K_arr, T, r, is_call, tol=1e-6):
     """
-    Calculate implied volatility using Newton-Raphson method.
-    Returns IV as a percentage (e.g., 35.0 for 35%), or NaN if it fails.
+    Vectorized IV calculation: Newton-Raphson + bisection fallback on whole arrays.
+    Returns IV as percentage array (float32). Cap at 5000%.
     """
-    if T <= 0 or market_price <= 0 or S <= 0 or K <= 0:
-        return np.float32(np.nan)
+    n = len(market_prices)
+    result = np.full(n, np.nan, dtype=np.float64)
 
-    # Intrinsic value check
-    if option_type == 'call':
-        intrinsic = max(S - K * np.exp(-r * T), 0)
-    else:
-        intrinsic = max(K * np.exp(-r * T) - S, 0)
-    if market_price < intrinsic * 0.99:  # below intrinsic (allow small tolerance)
-        return np.float32(np.nan)
+    # Validity mask
+    valid = (market_prices > 0) & (S_arr > 0) & (K_arr > 0) & (T > 0)
+    # Intrinsic check
+    discount_K = K_arr * np.exp(-r * T)
+    intrinsic = np.where(is_call, np.maximum(S_arr - discount_K, 0), np.maximum(discount_K - S_arr, 0))
+    valid &= market_prices >= intrinsic * 0.99
 
-    sigma = 0.3  # initial guess 30%
-    for _ in range(max_iter):
-        price = _bs_price(S, K, T, r, sigma, option_type)
-        vega = _bs_vega(S, K, T, r, sigma)
-        if vega < 1e-12:
+    idx = np.where(valid)[0]
+    if len(idx) == 0:
+        return np.round(result * 100, 4).astype(np.float32)
+
+    # Working arrays (only valid entries)
+    mp = market_prices[idx]
+    S = S_arr[idx]
+    K = K_arr[idx]
+    Tv = np.full(len(idx), T) if np.isscalar(T) else T[idx]
+    ic = is_call[idx] if isinstance(is_call, np.ndarray) else np.full(len(idx), is_call)
+
+    # Smart initial guess
+    moneyness = np.abs(np.log(S / K))
+    sigma = np.maximum(0.5, moneyness / np.sqrt(Tv))
+
+    # --- Newton-Raphson (50 iterations) ---
+    converged = np.zeros(len(idx), dtype=bool)
+    for _ in range(50):
+        active = ~converged
+        if not active.any():
             break
-        sigma = sigma - (price - market_price) / vega
-        if sigma <= 0:
-            sigma = 0.001
-        if abs(price - market_price) < tol:
-            return np.float32(round(sigma * 100, 4))  # return as percentage
-    return np.float32(np.nan)
+        price = _bs_price_vec(S[active], K[active], Tv[active], r, sigma[active], ic[active])
+        vega = _bs_vega_vec(S[active], K[active], Tv[active], r, sigma[active])
+        good_vega = vega > 1e-12
+        update = np.zeros_like(sigma[active])
+        update[good_vega] = (price[good_vega] - mp[active][good_vega]) / vega[good_vega]
+        new_sigma = sigma[active] - update
+        # Mark bad updates
+        bad = (new_sigma <= 0) | (~good_vega)
+        new_sigma[bad] = sigma[active][bad]  # keep old sigma for bad ones
+        sigma[active] = new_sigma
+        # Check convergence
+        conv_now = np.abs(price - mp[active]) < tol
+        conv_indices = np.where(active)[0][conv_now]
+        converged[conv_indices] = True
+
+    # --- Bisection fallback for unconverged (cap 50.0 = 5000%) ---
+    need_bisect = ~converged
+    if need_bisect.any():
+        bi = np.where(need_bisect)[0]
+        lo = np.full(len(bi), 0.01)
+        hi = np.full(len(bi), 50.0)
+        for _ in range(200):
+            mid = (lo + hi) / 2.0
+            price = _bs_price_vec(S[bi], K[bi], Tv[bi], r, mid, ic[bi])
+            below = price < mp[bi]
+            lo[below] = mid[below]
+            hi[~below] = mid[~below]
+            done = (hi - lo) < 1e-8
+            if done.all():
+                break
+        sigma[bi] = (lo + hi) / 2.0
+        # Verify bisection results
+        final_price = _bs_price_vec(S[bi], K[bi], Tv[bi], r, sigma[bi], ic[bi])
+        bisect_ok = np.abs(final_price - mp[bi]) < tol * 100
+        sigma[bi[~bisect_ok]] = np.nan
+
+    result[idx] = sigma
+    return np.round(result * 100, 4).astype(np.float32)
 
 def _get_intraday_data(ticker_symbol, date_str):
     """
@@ -211,23 +254,22 @@ def process_options_df(df, ticker_symbol, current_price, risk_free_rate, expirat
             lambda x: get_stock_price_at_time(ticker_symbol, x, current_price) if pd.notna(x) else np.float32(np.nan)
         ).astype(np.float32)
 
-    # 6. Calculate Black-Scholes IV using custom risk-free rate
+    # 6. Calculate Black-Scholes IV using custom risk-free rate (vectorized)
     exp_dt = datetime.strptime(expiration_date, '%Y-%m-%d')
     today = datetime.now()
     T = max((exp_dt - today).days / 365.0, 1 / 365.0)  # time to expiry in years, min 1 day
 
-    def _calc_row_iv(row):
-        S = row.get('underlyingPriceAtTrade', current_price)
-        if np.isnan(S) or S <= 0:
-            S = current_price
-        K = row.get('strike', np.nan)
-        price = row.get('lastPrice', np.nan)
-        if np.isnan(K) or np.isnan(price) or K <= 0 or price <= 0:
-            return np.float32(np.nan)
-        return calculate_iv(float(price), float(S), float(K), T, float(risk_free_rate), option_type)
+    S_arr = df['underlyingPriceAtTrade'].values.astype(np.float64) if 'underlyingPriceAtTrade' in df.columns else np.full(len(df), float(current_price))
+    # Fill NaN/zero S with current_price
+    bad_S = np.isnan(S_arr) | (S_arr <= 0)
+    S_arr[bad_S] = float(current_price)
 
-    print(f"    Calculating Black-Scholes IV (T={T:.4f}y, r={risk_free_rate:.4f}, type={option_type})...")
-    df['impliedVolatility'] = df.apply(_calc_row_iv, axis=1).astype(np.float32)
+    K_arr = df['strike'].values.astype(np.float64) if 'strike' in df.columns else np.full(len(df), np.nan)
+    mp_arr = df['lastPrice'].values.astype(np.float64) if 'lastPrice' in df.columns else np.full(len(df), np.nan)
+    is_call = np.full(len(df), option_type == 'call')
+
+    print(f"    Calculating Black-Scholes IV (T={T:.4f}y, r={risk_free_rate:.4f}, type={option_type}, n={len(df)})...")
+    df['impliedVolatility'] = calculate_iv_vectorized(mp_arr, S_arr, K_arr, T, float(risk_free_rate), is_call)
 
     # 7. Add risk-free rate column
     df['riskFreeRate'] = np.float32(risk_free_rate)
@@ -298,7 +340,7 @@ for name, ticker_symbol in TICKERS.items():
                     print(f"  Saved {len(cleaned_puts)} puts to {os.path.basename(puts_file)}")
 
                 # Sleep to prevent rate limiting
-                time.sleep(0.5)
+                time.sleep(0.4)
 
             except Exception as e:
                 print(f"  Error fetching {date} for {name}: {e}")

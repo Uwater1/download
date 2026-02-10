@@ -30,7 +30,7 @@ TICKERS = {
 }
 
 current_date = datetime.now().strftime("%Y-%m-%d")
-folder_path = current_date + "_5m"
+folder_path = current_date
 
 if not os.path.exists(folder_path):
     os.makedirs(folder_path)

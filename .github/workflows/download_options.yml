@@ -1,0 +1,39 @@
+name: Daily Options Download
+
+on:
+  schedule:
+    # Run at 23:00 UTC (End of US trading day) every day
+    - cron: '30 23 * * *'
+  
+  workflow_dispatch: # Allows manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  download-options:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          
+      - name: Install dependencies
+        run: pip install pandas yfinance
+        
+      - name: Run options download script
+        run: python download_options.py
+        
+      - name: Commit and push options data
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add options_data/
+          # Commit only if there are changes
+          git diff --staged --quiet || git commit -m "Add options data for $(date +'%Y-%m-%d')"
+          git push

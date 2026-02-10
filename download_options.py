@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import time
 import numpy as np
+from scipy.stats import norm
 
 # Define tickers (using ETFs for better options coverage)
 TICKERS = {
@@ -50,6 +51,57 @@ def get_risk_free_rate():
     except Exception as e:
         print(f"Error fetching risk-free rate: {e}, using default 0.04")
         return 0.04
+
+def _bs_price(S, K, T, r, sigma, option_type='call'):
+    """
+    Black-Scholes option price.
+    S: underlying price, K: strike, T: time to expiry (years),
+    r: risk-free rate, sigma: volatility (decimal), option_type: 'call' or 'put'
+    """
+    if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
+        return 0.0
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+    if option_type == 'call':
+        return S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+    else:
+        return K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+
+def _bs_vega(S, K, T, r, sigma):
+    """Black-Scholes vega (dPrice/dSigma)."""
+    if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
+        return 0.0
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+    return S * np.sqrt(T) * norm.pdf(d1)
+
+def calculate_iv(market_price, S, K, T, r, option_type='call', tol=1e-6, max_iter=50):
+    """
+    Calculate implied volatility using Newton-Raphson method.
+    Returns IV as a percentage (e.g., 35.0 for 35%), or NaN if it fails.
+    """
+    if T <= 0 or market_price <= 0 or S <= 0 or K <= 0:
+        return np.float32(np.nan)
+
+    # Intrinsic value check
+    if option_type == 'call':
+        intrinsic = max(S - K * np.exp(-r * T), 0)
+    else:
+        intrinsic = max(K * np.exp(-r * T) - S, 0)
+    if market_price < intrinsic * 0.99:  # below intrinsic (allow small tolerance)
+        return np.float32(np.nan)
+
+    sigma = 0.3  # initial guess 30%
+    for _ in range(max_iter):
+        price = _bs_price(S, K, T, r, sigma, option_type)
+        vega = _bs_vega(S, K, T, r, sigma)
+        if vega < 1e-12:
+            break
+        sigma = sigma - (price - market_price) / vega
+        if sigma <= 0:
+            sigma = 0.001
+        if abs(price - market_price) < tol:
+            return np.float32(round(sigma * 100, 4))  # return as percentage
+    return np.float32(np.nan)
 
 def _get_intraday_data(ticker_symbol, date_str):
     """
@@ -103,10 +155,15 @@ def get_stock_price_at_time(ticker_symbol, target_datetime, current_price):
         print(f"    Error getting price at time {target_datetime}: {e}")
         return np.float32(current_price)
 
-def process_options_df(df, ticker_symbol, current_price, risk_free_rate):
+def process_options_df(df, ticker_symbol, current_price, risk_free_rate, expiration_date, option_type):
     """
     Compresses and formats the options DataFrame according to specific rules.
     Adds underlying price at lastTradeDate time. Prices stored as float32.
+    Calculates Black-Scholes IV alongside yfinance IV.
+    
+    Args:
+        expiration_date: expiration date string 'YYYY-MM-DD'
+        option_type: 'call' or 'put'
     """
     if df is None or df.empty:
         return df
@@ -118,9 +175,10 @@ def process_options_df(df, ticker_symbol, current_price, risk_free_rate):
     ]
     df = df.drop(columns=cols_to_drop, errors='ignore')
 
-    # 2. Convert impliedVolatility to percentage with 4 decimal places
+    # 2. Rename yfinance IV → IV_yf (percentage, 4dp)
     if 'impliedVolatility' in df.columns:
-        df['impliedVolatility'] = (df['impliedVolatility'] * 100).round(4).astype(np.float32)
+        df['IV_yf'] = (df['impliedVolatility'] * 100).round(4).astype(np.float32)
+        df = df.drop(columns=['impliedVolatility'])
 
     # 3. Convert inTheMoney to 0 (False) and 1 (True)
     if 'inTheMoney' in df.columns:
@@ -153,13 +211,31 @@ def process_options_df(df, ticker_symbol, current_price, risk_free_rate):
             lambda x: get_stock_price_at_time(ticker_symbol, x, current_price) if pd.notna(x) else np.float32(np.nan)
         ).astype(np.float32)
 
-    # 6. Add risk-free rate column
+    # 6. Calculate Black-Scholes IV using custom risk-free rate
+    exp_dt = datetime.strptime(expiration_date, '%Y-%m-%d')
+    today = datetime.now()
+    T = max((exp_dt - today).days / 365.0, 1 / 365.0)  # time to expiry in years, min 1 day
+
+    def _calc_row_iv(row):
+        S = row.get('underlyingPriceAtTrade', current_price)
+        if np.isnan(S) or S <= 0:
+            S = current_price
+        K = row.get('strike', np.nan)
+        price = row.get('lastPrice', np.nan)
+        if np.isnan(K) or np.isnan(price) or K <= 0 or price <= 0:
+            return np.float32(np.nan)
+        return calculate_iv(float(price), float(S), float(K), T, float(risk_free_rate), option_type)
+
+    print(f"    Calculating Black-Scholes IV (T={T:.4f}y, r={risk_free_rate:.4f}, type={option_type})...")
+    df['impliedVolatility'] = df.apply(_calc_row_iv, axis=1).astype(np.float32)
+
+    # 7. Add risk-free rate column
     df['riskFreeRate'] = np.float32(risk_free_rate)
 
     return df
 
 # Get risk-free rate once at the start
-risk_free_rate = get_risk_free_rate()
+risk_free_rate = get_risk_free_rate() + 0.0005 # actual option market rate is higher than risk free rate
 print(f"Risk-free rate (^IRX): {risk_free_rate:.4f} ({risk_free_rate*100:.2f}%)")
 print(f"Starting options download for {current_date}...")
 
@@ -211,13 +287,13 @@ for name, ticker_symbol in TICKERS.items():
 
                 # Process and Save Calls
                 if chain.calls is not None and not chain.calls.empty:
-                    cleaned_calls = process_options_df(chain.calls.copy(), ticker_symbol, current_price, risk_free_rate)
+                    cleaned_calls = process_options_df(chain.calls.copy(), ticker_symbol, current_price, risk_free_rate, date, 'call')
                     cleaned_calls.to_csv(calls_file, index=False)
                     print(f"  Saved {len(cleaned_calls)} calls to {os.path.basename(calls_file)}")
 
                 # Process and Save Puts
                 if chain.puts is not None and not chain.puts.empty:
-                    cleaned_puts = process_options_df(chain.puts.copy(), ticker_symbol, current_price, risk_free_rate)
+                    cleaned_puts = process_options_df(chain.puts.copy(), ticker_symbol, current_price, risk_free_rate, date, 'put')
                     cleaned_puts.to_csv(puts_file, index=False)
                     print(f"  Saved {len(cleaned_puts)} puts to {os.path.basename(puts_file)}")
 

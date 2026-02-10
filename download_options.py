@@ -64,17 +64,22 @@ def get_stock_price_at_time(ticker_symbol, target_datetime, current_price):
         Price at the target time or NaN if too old
     """
     try:
+        # Make target_datetime timezone-aware if it isn't already
+        if target_datetime.tzinfo is None:
+            # Assume UTC if no timezone
+            target_datetime = target_datetime.replace(tzinfo=pd.Timestamp.now(tz='UTC').tzinfo)
+        
         # Check if trade is within last 5 days
-        now = datetime.now()
+        now = pd.Timestamp.now(tz='UTC')
         if (now - target_datetime).days > 5:
             return np.nan
         
         # Download 1-minute data for the day
         ticker = yf.Ticker(ticker_symbol)
         
-        # Get data for the specific day with 1-minute intervals
-        start_date = target_datetime.date()
-        end_date = start_date + timedelta(days=1)
+        # Get data for the specific day - yfinance needs date strings, not datetime
+        start_date = target_datetime.strftime('%Y-%m-%d')
+        end_date = (target_datetime + timedelta(days=1)).strftime('%Y-%m-%d')
         
         hist = ticker.history(start=start_date, end=end_date, interval="1m")
         
@@ -87,7 +92,7 @@ def get_stock_price_at_time(ticker_symbol, target_datetime, current_price):
             return current_price
         
         # Find the closest timestamp to our target
-        hist.index = pd.to_datetime(hist.index)
+        hist.index = pd.to_datetime(hist.index, utc=True)
         closest_idx = hist.index.get_indexer([target_datetime], method='nearest')[0]
         
         if closest_idx >= 0:
@@ -177,9 +182,9 @@ for name, ticker_symbol in TICKERS.items():
                 # Download option chain
                 chain = tk.option_chain(date)
                 
-                # Format filename: options_data/2026-02-10/aapl_20260217_calls_150.50.csv
+                # Format filename: options_data/2026-02-10/aapl_20260217_calls_150_50.csv
                 safe_date = date.replace("-", "")
-                price_str = f"{current_price:.2f}"
+                price_str = f"{current_price:.2f}".replace(".", "_")
                 calls_file = os.path.join(date_folder, f"{name}_{safe_date}_calls_{price_str}.csv")
                 puts_file = os.path.join(date_folder, f"{name}_{safe_date}_puts_{price_str}.csv")
                 

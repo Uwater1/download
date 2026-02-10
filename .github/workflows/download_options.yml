@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   download-options:
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository

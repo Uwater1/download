@@ -22,7 +22,7 @@ TICKERS = {
 }
 
 current_date = datetime.now().strftime("%Y-%m-%d")
-base_folder = "options_data"
+base_folder = "options_data_yq"
 date_folder = os.path.join(base_folder, current_date)
 
 if not os.path.exists(date_folder):

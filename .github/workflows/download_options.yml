@@ -1,9 +1,9 @@
 name: Daily Options Download
 
 on:
-  schedule:
+#  schedule:
     # Run at 23:00 UTC (End of US trading day)
-    - cron: '0 23 * * 1-5' 
+#    - cron: '0 23 * * 1-5' 
   
   workflow_dispatch: # Allows manual trigger
 

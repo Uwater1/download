@@ -22,7 +22,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
-        run: pip install pandas yfinance numpy scipy
+        run: pip install pandas yfinance numpy scipy numpy
 
       - name: Run options download script
         id: download

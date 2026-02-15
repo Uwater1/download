@@ -1,8 +1,8 @@
 name: New Data Downloader
 
 on:
-  schedule:
-    - cron: '44 5 * * 0'  # Run at 5:44 UTC Every SAT
+#  schedule:
+#    - cron: '44 5 * * 0'  # Run at 5:44 UTC Every SAT
   workflow_dispatch:
 
 permissions:

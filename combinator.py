@@ -2,6 +2,7 @@ import os
 import glob
 import pandas as pd
 from datetime import datetime, timedelta
+import pytz
 
 def get_ticker_from_file(filepath):
     """
@@ -17,6 +18,66 @@ def get_ticker_from_file(filepath):
     except Exception as e:
         print(f"Error reading ticker from {filepath}: {e}")
     return None
+
+def load_existing_history(output_dir):
+    """
+    Loads existing CSV files from the history directory.
+    """
+    existing_data = {}
+    if os.path.exists(output_dir):
+        csv_files = glob.glob(os.path.join(output_dir, "*.csv"))
+        for filepath in csv_files:
+            try:
+                # The history files are already in standard format: Datetime,Open,High,Low,Close,Volume
+                df = pd.read_csv(filepath)
+                df['Datetime'] = pd.to_datetime(df['Datetime'], utc=True)
+                ticker = os.path.splitext(os.path.basename(filepath))[0]
+                existing_data[ticker] = [df]
+                print(f"Loaded existing history for {ticker}")
+            except (pd.errors.ParserError, KeyError, ValueError) as e:
+                print(f"Error reading existing history {filepath}: {e}")
+    return existing_data
+
+def is_trading_time(ticker, dt):
+    """
+    Checks if the given datetime is within trading hours for the asset.
+    Assumptions:
+    - Crypto (-USD): 24/7
+    - Forex (=X) / Futures (=F): Exclude weekends (Sat/Sun)
+    - Stocks (Others): Mon-Fri 09:30 - 16:00 ET
+    """
+    # Crypto
+    if ticker.endswith('-USD'):
+        return True
+
+    # Check for weekend
+    # weekday(): Mon=0, Sun=6.
+    if dt.weekday() >= 5: # Sat or Sun
+        return False
+
+    # Futures and Forex (Simplified to just exclude weekends)
+    if ticker.endswith('=F') or ticker.endswith('=X'):
+        return True
+
+    # Stocks
+    # Convert to Eastern Time
+    eastern = pytz.timezone('US/Eastern')
+    # dt should be timezone aware (UTC) because pd.date_range creates it with tz='UTC'
+    if dt.tzinfo is None:
+        dt = pytz.utc.localize(dt)
+
+    dt_eastern = dt.astimezone(eastern)
+
+    # Check time range 09:30 - 16:00
+    current_time = dt_eastern.time()
+    # We can assume these are constant
+    start_time = datetime.strptime("09:30", "%H:%M").time()
+    end_time = datetime.strptime("16:00", "%H:%M").time()
+
+    if start_time <= current_time <= end_time:
+        return True
+
+    return False
 
 def main():
     output_dir = "history"
@@ -41,7 +102,7 @@ def main():
 
     print(f"Found source directories: {source_dirs}")
 
-    ticker_data = {}
+    ticker_data = load_existing_history(output_dir)
 
     for d in source_dirs:
         csv_files = glob.glob(os.path.join(d, "*.csv"))
@@ -112,7 +173,11 @@ def main():
             # Find missing timestamps
             # Convert to sets for faster comparison
             existing_timestamps = set(full_df['Datetime'])
-            missing_timestamps = sorted(list(set(expected_range) - existing_timestamps))
+
+            # Filter expected range
+            expected_range_filtered = [dt for dt in expected_range if is_trading_time(ticker, dt)]
+
+            missing_timestamps = sorted(list(set(expected_range_filtered) - existing_timestamps))
 
             if missing_timestamps:
                 missing_report += f"## {ticker}\n"

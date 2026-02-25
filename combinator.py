@@ -34,7 +34,7 @@ def load_existing_history(output_dir):
                 ticker = os.path.splitext(os.path.basename(filepath))[0]
                 existing_data[ticker] = [df]
                 print(f"Loaded existing history for {ticker}")
-            except Exception as e:
+            except (pd.errors.ParserError, KeyError, ValueError) as e:
                 print(f"Error reading existing history {filepath}: {e}")
     return existing_data
 

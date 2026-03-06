@@ -40,7 +40,7 @@ downloaded = []
 
 for name, ticker in TICKERS.items():
     try:
-        print(f"Downloading data for {name} ({ticker})...")
+        #print(f"Downloading data for {name} ({ticker})...")
         data = yf.download(ticker, period="8d", interval="1m")
 
         # Skip writing if no data returned

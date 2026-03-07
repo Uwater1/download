@@ -78,7 +78,7 @@ def is_trading_time(ticker, dt):
             return False
         return True
 
-    if ticker.endswith('=X') or ticker.endswith('USD=X'):
+    if ticker.endswith('=X'):
         # Friday close at 17:00
         if weekday == 4 and current_time >= t17:
             return False

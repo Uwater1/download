@@ -1,7 +1,7 @@
 import os
 import glob
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import pytz
 
 def get_ticker_from_file(filepath):
@@ -41,42 +41,60 @@ def load_existing_history(output_dir):
 def is_trading_time(ticker, dt):
     """
     Checks if the given datetime is within trading hours for the asset.
-    Assumptions:
+    All times evaluated in US/Eastern.
     - Crypto (-USD): 24/7
-    - Forex (=X) / Futures (=F): Exclude weekends (Sat/Sun)
-    - Stocks (Others): Mon-Fri 09:30 - 16:00 ET
+    - Futures (=F): Sun 18:00 to Fri 17:00, daily break 17:00-18:00
+    - Forex (=X): Sun 17:00 to Fri 17:00
+    - Stocks (Others): Mon-Fri 09:30-16:00
     """
-    # Crypto
     if ticker.endswith('-USD'):
         return True
 
-    # Check for weekend
-    # weekday(): Mon=0, Sun=6.
-    if dt.weekday() >= 5: # Sat or Sun
-        return False
+    eastern = pytz.timezone('US/Eastern')
+    if dt.tzinfo is None:
+        dt = pytz.utc.localize(dt)
+    dt_eastern = dt.astimezone(eastern)
 
-    # Futures and Forex (Simplified to just exclude weekends)
-    if ticker.endswith('=F') or ticker.endswith('=X'):
+    weekday = dt_eastern.weekday() # Mon=0, Sun=6
+    current_time = dt_eastern.time()
+
+    t17 = time(17, 0)
+    t18 = time(18, 0)
+    t0930 = time(9, 30)
+    t1600 = time(16, 0)
+
+    if ticker.endswith('=F'):
+        # Friday close at 17:00
+        if weekday == 4 and current_time >= t17:
+            return False
+        # Saturday closed
+        if weekday == 5:
+            return False
+        # Sunday open at 18:00
+        if weekday == 6 and current_time < t18:
+            return False
+        # Daily break 17:00-18:00
+        if t17 <= current_time < t18:
+            return False
+        return True
+
+    if ticker.endswith('=X') or ticker.endswith('USD=X'):
+        # Friday close at 17:00
+        if weekday == 4 and current_time >= t17:
+            return False
+        # Saturday closed
+        if weekday == 5:
+            return False
+        # Sunday open at 17:00
+        if weekday == 6 and current_time < t17:
+            return False
         return True
 
     # Stocks
-    # Convert to Eastern Time
-    eastern = pytz.timezone('US/Eastern')
-    # dt should be timezone aware (UTC) because pd.date_range creates it with tz='UTC'
-    if dt.tzinfo is None:
-        dt = pytz.utc.localize(dt)
-
-    dt_eastern = dt.astimezone(eastern)
-
-    # Check time range 09:30 - 16:00
-    current_time = dt_eastern.time()
-    # We can assume these are constant
-    start_time = datetime.strptime("09:30", "%H:%M").time()
-    end_time = datetime.strptime("16:00", "%H:%M").time()
-
-    if start_time <= current_time <= end_time:
+    if weekday >= 5: # Sat, Sun
+        return False
+    if t0930 <= current_time <= t1600:
         return True
-
     return False
 
 def main():
@@ -115,12 +133,6 @@ def main():
             # Read CSV
             try:
                 # Skip header rows 1 and 2 (0-indexed lines 1 and 2), keep line 0 as header but we will rename
-                # Actually, based on analysis:
-                # Line 0: Price,Close,High,Low,Open,Volume -> Header
-                # Line 1: Ticker,BTC-USD... -> Skip
-                # Line 2: Datetime,,,,, -> Skip
-                # But pd.read_csv skiprows refers to line numbers.
-                # If we skip [1, 2], we keep line 0.
                 df = pd.read_csv(filepath, skiprows=[1, 2])
 
                 # Rename Price to Datetime
@@ -128,8 +140,6 @@ def main():
                     df.rename(columns={'Price': 'Datetime'}, inplace=True)
 
                 # Normalize columns to standard OHLCV
-                # The file has: Datetime, Close, High, Low, Open, Volume
-                # We want: Datetime, Open, High, Low, Close, Volume
                 cols = ['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
                 if set(cols).issubset(df.columns):
                     df = df[cols]
@@ -180,8 +190,6 @@ def main():
             missing_timestamps = sorted(list(set(expected_range_filtered) - existing_timestamps))
 
             if missing_timestamps:
-                missing_report += f"## {ticker}\n"
-
                 # Group consecutive missing timestamps
                 gaps = []
                 if len(missing_timestamps) > 0:
@@ -197,11 +205,24 @@ def main():
                             prev_gap = dt
                     gaps.append((start_gap, prev_gap))
 
+                ticker_has_significant_missing = False
+                temp_report = ""
                 for start, end in gaps:
                     duration = end - start + timedelta(minutes=1)
-                    missing_report += f"- Missing from {start} to {end} (Duration: {duration})\n"
+                    # Ignore gap <= 2 minutes
+                    if duration <= timedelta(minutes=2):
+                        continue
 
-                missing_report += "\n"
+                    if not ticker_has_significant_missing:
+                        temp_report += f"## {ticker}\n\n"
+                        ticker_has_significant_missing = True
+
+                    start_str = start.strftime('%Y-%m-%d %H:%M')
+                    end_str = end.strftime('%Y-%m-%d %H:%M')
+                    temp_report += f"{start_str} to {end_str} ({duration})\n\n"
+
+                if ticker_has_significant_missing:
+                    missing_report += temp_report + "\n"
 
     with open(report_file, 'w') as f:
         f.write(missing_report)

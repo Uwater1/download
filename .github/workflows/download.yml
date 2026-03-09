@@ -32,9 +32,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          sparse-checkout: |
+            download_data.py
+            requirements*.txt
 
       - name: Install dependencies
         run: pip install pandas yfinance

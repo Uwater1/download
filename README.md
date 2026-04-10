@@ -35,6 +35,15 @@ The workflow runs automatically. To trigger manually:
 - Work log is available in the GitHub Actions job summary
 - Option CSV file: 1 represent In the Money, 0 represent Out of the Money
 
+## Project Structure
+
+- `history/`: Merged 1-minute historical price data.
+- `YYYY-MM-DD/`: Weekly raw data folders (merged into history then deleted).
+- `2m-data/` & `data_5m/`: Historical data with 2-minute and 5-minute intervals.
+- `options_data_yq/`: Daily option data.
+- `combinator.py`: Python script used to merge weekly data into `history/`, deduplicate, and report gaps.
+- `download_*.py`: Scripts for downloading various types of data.
+
 ## Requirements
 
 - Python 3.x

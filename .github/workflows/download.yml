@@ -1,0 +1,61 @@
+name: Weekly Data Download
+
+on:
+  schedule:
+    - cron: '44 5 * * 6'  # Saturday at 05:44 UTC
+
+  workflow_dispatch:
+
+concurrency:
+  group: financial-data-writes
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Validate scripts
+        run: python -m pytest -q
+
+      - name: Run download script
+        id: download
+        run: |
+          status=0
+          python download_data.py > /tmp/work_log.txt 2>&1 || status=$?
+          cat /tmp/work_log.txt
+          echo '### Download log' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/work_log.txt >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Write work summary
+        run: |
+          echo "## Work Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Downloaded financial data for $(date +'%Y-%m-%d')" >> $GITHUB_STEP_SUMMARY
+          echo "Parquet files saved in downloads/ and history/" >> $GITHUB_STEP_SUMMARY
+          echo "### Work Log" >> $GITHUB_STEP_SUMMARY
+          cat /tmp/work_log.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and push downloaded data
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add downloads/ history/
+          git diff --staged --quiet || git commit -m "Add downloaded data for $(date +'%Y-%m-%d')"
+          git push

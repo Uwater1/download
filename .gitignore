@@ -1,0 +1,5 @@
+# Note: Date folders (YYYY-MM-DD) are intentionally NOT ignored
+# to allow the workflow to commit downloaded data
+__pycache__/
+.pytest_cache/
+.venv/

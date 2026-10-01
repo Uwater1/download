@@ -1,0 +1,2 @@
+# Parquet datasets are binary; never normalize line endings or attempt text merges.
+*.parquet binary

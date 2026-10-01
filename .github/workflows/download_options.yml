@@ -1,0 +1,64 @@
+name: Daily Options Download
+
+on:
+#  schedule:
+    # Run at 23:00 UTC (End of US trading day)
+#    - cron: '0 23 * * 1-5' 
+  
+  workflow_dispatch: # Allows manual trigger
+
+concurrency:
+  group: financial-data-writes
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  download-options:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Validate scripts
+        run: python -m pytest -q
+
+      - name: Run options download script
+        id: download
+        run: |
+          status=0
+          python download_options.py > /tmp/work_log.txt 2>&1 || status=$?
+          cat /tmp/work_log.txt
+          echo '### Download log' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/work_log.txt >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Write work summary
+        run: |
+          echo "## Options Download Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Run completed on $(date +'%Y-%m-%d')" >> $GITHUB_STEP_SUMMARY
+          echo "### Execution Log" >> $GITHUB_STEP_SUMMARY
+          cat /tmp/work_log.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and push options data
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add downloads/options/ history/options/
+          
+          # Only commit if there are actually changes
+          git diff --staged --quiet || git commit -m "Add options data for $(date +'%Y-%m-%d')"
+          
+          git push

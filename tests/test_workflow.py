@@ -21,6 +21,14 @@ def test_aware_roundtrip_and_latest_wins(tmp_path):
     with pytest.raises(ValueError, match='explicit timezone'):
         normalize_prices(prices(['2026-06-01 09:30']))
 
+def test_normalize_clears_price_named_columns_for_parquet_validation(tmp_path):
+    raw = prices(pd.to_datetime(['2026-06-01 13:30:00+00:00'], utc=True)).set_index('Datetime')
+    raw.columns = pd.Index(raw.columns, name='Price')
+    normalized = normalize_prices(raw)
+    assert normalized.columns.name is None
+    write_parquet(normalized, tmp_path/'prices.parquet')
+    pd.testing.assert_frame_equal(read_prices(tmp_path/'prices.parquet'), normalized)
+
 def test_timezone_inferred_from_overlap(tmp_path):
     times = pd.date_range('2026-05-20 13:30', periods=40, freq='min', tz='UTC')
     reference = normalize_prices(prices(times))

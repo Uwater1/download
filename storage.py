@@ -47,7 +47,7 @@ def normalize_prices(df, naive_timezone=None):
         if naive_timezone is None:
             raise ValueError('Naive timestamps require an explicit timezone')
         dates = dates.dt.tz_localize(naive_timezone, ambiguous='raise', nonexistent='raise')
-    df['Datetime'] = dates.dt.tz_convert('UTC')
+    df['Datetime'] = dates.dt.tz_convert('UTC').dt.as_unit('ms')
     for col in COLS[1:]:
         df[col] = pd.to_numeric(df[col], errors='raise').astype('float64')
     if df.isna().any().any() or not __import__('numpy').isfinite(df[COLS[1:]]).all().all():

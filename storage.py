@@ -41,6 +41,7 @@ def normalize_prices(df, naive_timezone=None):
     if not set(COLS).issubset(df.columns):
         raise ValueError(f'Missing OHLCV columns: {list(df.columns)}')
     df = df[COLS]
+    df.columns = pd.Index(COLS)
     dates = pd.to_datetime(df.Datetime, format='mixed', errors='raise')
     if dates.dt.tz is None:
         if naive_timezone is None:

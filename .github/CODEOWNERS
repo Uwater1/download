@@ -1,0 +1,16 @@
+# Default owner for application code, data pipelines, and repository policy.
+* @Uwater1
+
+# Changes that can write committed market data or alter its meaning.
+/.github/workflows/ @Uwater1
+/storage.py @Uwater1
+/combinator.py @Uwater1
+/merge.py @Uwater1
+/fix_timestamps.py @Uwater1
+/history/ @Uwater1
+/downloads/ @Uwater1
+
+# Security and collaboration policy.
+/.github/CODEOWNERS @Uwater1
+/CONTRIBUTING.md @Uwater1
+/SECURITY.md @Uwater1

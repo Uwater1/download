@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/Uwater1/download/security/advisories/new
+    about: Use a private security advisory. Do not disclose vulnerabilities in a public issue.
+  - name: Read contribution procedures
+    url: https://github.com/Uwater1/download/blob/main/CONTRIBUTING.md
+    about: Check setup, testing, data, and pull request expectations first.

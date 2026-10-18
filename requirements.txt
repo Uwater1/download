@@ -1,6 +1,6 @@
 pandas==3.0.6
 pyarrow==25.0.1
-numpy==2.5.3
+numpy==2.5.4
 yfinance==1.7.0
 yahooquery==2.4.1
 exchange-calendars==4.13.2
